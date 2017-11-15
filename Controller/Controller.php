@@ -4,13 +4,13 @@ namespace Bazinga\Bundle\JsTranslationBundle\Controller;
 
 use Bazinga\Bundle\JsTranslationBundle\Finder\TranslationFinder;
 use Symfony\Component\Translation\TranslatorInterface;
-use Symfony\Component\Templating\EngineInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Config\ConfigCache;
 use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Twig_Environment;
 
 /**
  * @author William DURAND <william.durand1@gmail.com>
@@ -23,9 +23,9 @@ class Controller
     private $translator;
 
     /**
-     * @var EngineInterface
+     * @var Twig_Environment
      */
-    private $engine;
+    private $twig;
 
     /**
      * @var TranslationFinder
@@ -63,7 +63,7 @@ class Controller
 
     /**
      * @param TranslatorInterface $translator        The translator.
-     * @param EngineInterface     $engine            The engine.
+     * @param Twig_Environment    $twig              The twig environment.
      * @param TranslationFinder   $translationFinder The translation finder.
      * @param string              $cacheDir
      * @param boolean             $debug
@@ -73,7 +73,7 @@ class Controller
      */
     public function __construct(
         TranslatorInterface $translator,
-        EngineInterface $engine,
+        Twig_Environment $twig,
         TranslationFinder $translationFinder,
         $cacheDir,
         $debug          = false,
@@ -82,7 +82,7 @@ class Controller
         $httpCacheTime  = 86400
     ) {
         $this->translator        = $translator;
-        $this->engine            = $engine;
+        $this->twig              = $twig;
         $this->translationFinder = $translationFinder;
         $this->cacheDir          = $cacheDir;
         $this->debug             = $debug;
@@ -134,13 +134,13 @@ class Controller
 
                 $translations[$locale][$domain] = array();
 
-                foreach ($files as $file) {
-                    $extension = pathinfo($file->getFilename(), \PATHINFO_EXTENSION);
+                foreach ($files as $filename) {
+                    $extension = pathinfo($filename, \PATHINFO_EXTENSION);
 
                     if (isset($this->loaders[$extension])) {
-                        $resources[] = new FileResource($file->getPath());
+                        $resources[] = new FileResource($filename);
                         $catalogue   = $this->loaders[$extension]
-                            ->load($file, $locale, $domain);
+                            ->load($filename, $locale, $domain);
 
                         $translations[$locale][$domain] = array_replace_recursive(
                             $translations[$locale][$domain],
@@ -150,7 +150,7 @@ class Controller
                 }
             }
 
-            $content = $this->engine->render('BazingaJsTranslationBundle::getTranslations.' . $_format . '.twig', array(
+            $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(
                 'fallback'       => $this->localeFallback,
                 'defaultDomain'  => $this->defaultDomain,
                 'translations'   => $translations,
@@ -195,7 +195,7 @@ class Controller
         }
 
         $locales = array_filter($locales, function ($locale) {
-            return 1 === preg_match('/^[a-z]{2}([-_]{1}[a-zA-Z]{2})?$/', $locale);
+            return 1 === preg_match('/^[a-z]{2,3}([-_]{1}[a-zA-Z]{2})?$/', $locale);
         });
 
         $locales = array_unique(array_map(function ($locale) {
