@@ -3,13 +3,15 @@
 namespace Bazinga\Bundle\JsTranslationBundle\Controller;
 
 use Bazinga\Bundle\JsTranslationBundle\Finder\TranslationFinder;
-use Symfony\Component\Translation\TranslatorInterface;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Request;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Config\ConfigCache;
 use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Filesystem\Exception\IOException;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Translation\TranslatorInterface;
 use Twig_Environment;
 
 /**
@@ -38,6 +40,11 @@ class Controller
     private $loaders = array();
 
     /**
+     * @var EntityManagerInterface
+     */
+    private $em;
+
+    /**
      * @var string
      */
     private $cacheDir;
@@ -56,39 +63,27 @@ class Controller
      * @var string
      */
     private $defaultDomain;
-    /**
-     * @var int
-     */
-    private $httpCacheTime;
 
-    /**
-     * @param TranslatorInterface $translator        The translator.
-     * @param Twig_Environment    $twig              The twig environment.
-     * @param TranslationFinder   $translationFinder The translation finder.
-     * @param string              $cacheDir
-     * @param boolean             $debug
-     * @param string              $localeFallback
-     * @param string              $defaultDomain
-     * @param int                 $httpCacheTime
-     */
+    private const HTTP_CACHE_TIME = 86400;
+
     public function __construct(
         TranslatorInterface $translator,
         Twig_Environment $twig,
         TranslationFinder $translationFinder,
+        EntityManagerInterface $em,
         $cacheDir,
         $debug          = false,
         $localeFallback = '',
-        $defaultDomain  = '',
-        $httpCacheTime  = 86400
+        $defaultDomain  = ''
     ) {
         $this->translator        = $translator;
         $this->twig              = $twig;
         $this->translationFinder = $translationFinder;
+        $this->em                = $em;
         $this->cacheDir          = $cacheDir;
         $this->debug             = $debug;
         $this->localeFallback    = $localeFallback;
         $this->defaultDomain     = $defaultDomain;
-        $this->httpCacheTime     = $httpCacheTime;
     }
 
     /**
@@ -112,12 +107,15 @@ class Controller
             throw new NotFoundHttpException();
         }
 
-        $cache = new ConfigCache(sprintf('%s/%s.%s.%s',
-            $this->cacheDir,
-            $domain,
-            implode('-', $locales),
-            $_format
-        ), $this->debug);
+        $cache = new ConfigCache(
+            sprintf(
+                '%s/%s.%s.%s',
+                $this->cacheDir,
+                $domain,
+                implode('-', $locales),
+                $_format
+            ), $this->debug
+        );
 
         if (!$cache->isFresh()) {
             $resources    = array();
@@ -148,6 +146,25 @@ class Controller
                         );
                     }
                 }
+
+                $conn = $this->em->getConnection();
+
+                $query = "
+                SELECT ltu.key_name as key_name, ltut.content as value FROM lexik_trans_unit ltu
+                JOIN lexik_trans_unit_translations ltut ON ltut.trans_unit_id = ltu.id
+                WHERE ltut.locale = :locale
+                AND ltu.domain = :domain
+            ";
+
+                $stmt = $conn->prepare($query);
+                $stmt->bindValue("locale", $locale);
+                $stmt->bindValue("domain", $domain);
+                $stmt->execute();
+                $result = $stmt->fetchAll();
+
+                foreach ($result as $value) {
+                    $translations[$locale][$domain][$value['key_name']] = $value['value'];
+                }
             }
 
             $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(
@@ -171,7 +188,7 @@ class Controller
         }
 
         $expirationTime = new \DateTime();
-        $expirationTime->modify('+' . $this->httpCacheTime . ' seconds');
+        $expirationTime->modify('+' . self::HTTP_CACHE_TIME . ' seconds');
         $response = new Response(
             file_get_contents($cachePath),
             200,
