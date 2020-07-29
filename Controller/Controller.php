@@ -19,6 +19,14 @@ use Twig_Environment;
  */
 class Controller
 {
+    const HTTP_CACHE_TIME = 86400;
+    const GET_TRANSLATIONS_QUERY = "
+        SELECT ltu.key_name as key_name, ltut.content as value FROM lexik_trans_unit ltu
+        JOIN lexik_trans_unit_translations ltut ON ltut.trans_unit_id = ltu.id
+        WHERE ltut.locale = :locale
+        AND ltu.domain = :domain
+    ";
+
     /**
      * @var TranslatorInterface
      */
@@ -63,8 +71,6 @@ class Controller
      * @var string
      */
     private $defaultDomain;
-
-    private const HTTP_CACHE_TIME = 86400;
 
     public function __construct(
         TranslatorInterface $translator,
@@ -142,25 +148,7 @@ class Controller
                         );
                     }
                 }
-
-                $conn = $this->em->getConnection();
-
-                $query = "
-                SELECT ltu.key_name as key_name, ltut.content as value FROM lexik_trans_unit ltu
-                JOIN lexik_trans_unit_translations ltut ON ltut.trans_unit_id = ltu.id
-                WHERE ltut.locale = :locale
-                AND ltu.domain = :domain
-            ";
-
-                $stmt = $conn->prepare($query);
-                $stmt->bindValue("locale", $locale);
-                $stmt->bindValue("domain", $domain);
-                $stmt->execute();
-                $result = $stmt->fetchAll();
-
-                foreach ($result as $value) {
-                    $translations[$locale][$domain][$value['key_name']] = $value['value'];
-                }
+                $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
             }
 
             $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(
@@ -216,5 +204,21 @@ class Controller
         }, $locales));
 
         return $locales;
+    }
+
+    private function getDatabaseTranslations($translations, $locale, $domain)
+    {
+        $conn = $this->em->getConnection();
+        $stmt = $conn->prepare(self::GET_TRANSLATIONS_QUERY);
+        $stmt->bindValue("locale", $locale);
+        $stmt->bindValue("domain", $domain);
+        $stmt->execute();
+        $result = $stmt->fetchAll();
+
+        foreach ($result as $value) {
+            $translations[$locale][$domain][$value['key_name']] = $value['value'];
+        }
+
+        return $translations;
     }
 }
