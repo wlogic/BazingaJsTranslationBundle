@@ -126,10 +126,6 @@ class Controller
 
                 $files = $this->translationFinder->get($domain, $locale);
 
-                if (1 > count($files)) {
-                    continue;
-                }
-
                 $translations[$locale][$domain] = array();
 
                 foreach ($files as $filename) {
