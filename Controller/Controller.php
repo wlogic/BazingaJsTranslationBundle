@@ -14,12 +14,21 @@ use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Twig\Environment;
 use Twig\Loader\LoaderInterface;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * @author William DURAND <william.durand1@gmail.com>
  */
 class Controller
 {
+    const HTTP_CACHE_TIME = 86400;
+    const GET_TRANSLATIONS_QUERY = "
+        SELECT ltu.key_name as key_name, ltut.content as value FROM lexik_trans_unit ltu
+        JOIN lexik_trans_unit_translations ltut ON ltut.trans_unit_id = ltu.id
+        WHERE ltut.locale = :locale
+        AND ltu.domain = :domain
+    ";
+
     /**
      * @var TranslatorInterface
      */
@@ -38,7 +47,12 @@ class Controller
     /**
      * @var array
      */
-    private $loaders = array();
+    private $loaders = [];
+
+    /**
+     * @var EntityManagerInterface
+     */
+    private $em;
 
     /**
      * @var string
@@ -59,10 +73,7 @@ class Controller
      * @var string
      */
     private $defaultDomain;
-    /**
-     * @var int
-     */
-    private $httpCacheTime;
+
 
     /**
      * @param TranslatorInterface           $translator        The translator.
@@ -79,11 +90,11 @@ class Controller
         $translator,
         Environment $twig,
         TranslationFinder $translationFinder,
+        EntityManagerInterface $em,
         $cacheDir,
         $debug          = false,
         $localeFallback = '',
-        $defaultDomain  = '',
-        $httpCacheTime  = 86400
+        $defaultDomain  = ''
     ) {
         if (!$translator instanceof TranslatorInterface && !$translator instanceof LegacyTranslatorInterface) {
             throw new \InvalidArgumentException(sprintf('Providing an instance of "%s" as translator is not supported.', get_class($translator)));
@@ -92,11 +103,11 @@ class Controller
         $this->translator        = $translator;
         $this->twig              = $twig;
         $this->translationFinder = $translationFinder;
+        $this->em                = $em;
         $this->cacheDir          = $cacheDir;
         $this->debug             = $debug;
         $this->localeFallback    = $localeFallback;
         $this->defaultDomain     = $defaultDomain;
-        $this->httpCacheTime     = $httpCacheTime;
     }
 
     /**
@@ -120,25 +131,30 @@ class Controller
             throw new NotFoundHttpException();
         }
 
-        $cache = new ConfigCache(sprintf('%s/%s.%s.%s',
-            $this->cacheDir,
-            $domain,
-            implode('-', $locales),
-            $_format
-        ), $this->debug);
+        $cache = new ConfigCache(
+            sprintf(
+                '%s/%s.%s.%s',
+                $this->cacheDir,
+                $domain,
+                implode('-', $locales),
+                $_format
+            ), $this->debug
+        );
 
         if (!$cache->isFresh()) {
-            $resources    = array();
-            $translations = array();
+            $resources    = [];
+            $translations = [];
 
             foreach ($locales as $locale) {
-                $translations[$locale] = array();
+                $translations[$locale] = [];
 
                 $files = $this->translationFinder->get($domain, $locale);
 
+                $translations[$locale][$domain] = [];
+
                 foreach ($files as $filename) {
                     [$currentDomain] = Util::extractCatalogueInformationFromFilename($filename);
-                    $translations[$locale][$currentDomain] = array();
+                    $translations[$locale][$currentDomain] = [];
 
                     $extension = pathinfo($filename, \PATHINFO_EXTENSION);
 
@@ -153,6 +169,7 @@ class Controller
                         );
                     }
                 }
+                $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
             }
 
             $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(
@@ -176,7 +193,7 @@ class Controller
         }
 
         $expirationTime = new \DateTime();
-        $expirationTime->modify('+' . $this->httpCacheTime . ' seconds');
+        $expirationTime->modify('+' . self::HTTP_CACHE_TIME . ' seconds');
         $response = new Response(
             file_get_contents($cachePath),
             200,
@@ -208,5 +225,21 @@ class Controller
         }, $locales));
 
         return $locales;
+    }
+
+    private function getDatabaseTranslations($translations, $locale, $domain)
+    {
+        $conn = $this->em->getConnection();
+        $stmt = $conn->prepare(self::GET_TRANSLATIONS_QUERY);
+        $stmt->bindValue("locale", $locale);
+        $stmt->bindValue("domain", $domain);
+        $stmt->execute();
+        $result = $stmt->fetchAll();
+
+        foreach ($result as $value) {
+            $translations[$locale][$domain][$value['key_name']] = $value['value'];
+        }
+
+        return $translations;
     }
 }

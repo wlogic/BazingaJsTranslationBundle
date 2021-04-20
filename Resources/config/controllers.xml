@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <container xmlns="http://symfony.com/schema/dic/services"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <parameters>
         <parameter key="bazinga.jstranslation.controller.class">Bazinga\Bundle\JsTranslationBundle\Controller\Controller</parameter>
@@ -12,11 +12,11 @@
             <argument type="service" id="translator" />
             <argument type="service" id="twig" />
             <argument type="service" id="bazinga.jstranslation.translation_finder" />
+            <argument type="service" id="doctrine.orm.default_entity_manager" />
             <argument>%kernel.cache_dir%/bazinga-js-translation</argument>
             <argument>%kernel.debug%</argument>
             <argument></argument> <!-- fallback (locale) -->
             <argument></argument> <!-- default domain    -->
-            <argument></argument> <!-- http cache time -->
         </service>
     </services>
 </container>
