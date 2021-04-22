@@ -74,16 +74,20 @@ class Controller
      */
     private $defaultDomain;
 
+    /**
+     * @var string
+     */
+    private $enviornmnet;
 
     /**
      * @param TranslatorInterface           $translator        The translator.
      * @param Environment                   $twig              The twig environment.
      * @param TranslationFinder             $translationFinder The translation finder.
+     * @param EntityManagerInterface        $em                The EntityManagerInterface.
      * @param string                        $cacheDir
      * @param boolean                       $debug
      * @param string                        $localeFallback
      * @param string                        $defaultDomain
-     * @param int                           $httpCacheTime
      * @throws \InvalidArgumentException
      */
     public function __construct(
@@ -92,6 +96,7 @@ class Controller
         TranslationFinder $translationFinder,
         EntityManagerInterface $em,
         $cacheDir,
+        string $environment,
         $debug          = false,
         $localeFallback = '',
         $defaultDomain  = ''
@@ -108,6 +113,7 @@ class Controller
         $this->debug             = $debug;
         $this->localeFallback    = $localeFallback;
         $this->defaultDomain     = $defaultDomain;
+        $this->environment       = $environment;
     }
 
     /**
@@ -160,7 +166,7 @@ class Controller
 
                     if (isset($this->loaders[$extension])) {
                         $resources[] = new FileResource($filename);
-                        $catalogue   = $this->loaders[$extension]
+                        $catalogue = $this->loaders[$extension]
                             ->load($filename, $locale, $currentDomain);
 
                         $translations[$locale][$currentDomain] = array_replace_recursive(
@@ -169,7 +175,10 @@ class Controller
                         );
                     }
                 }
-                $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
+
+                if ($this->environment !== 'test') {
+                    $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
+                }
             }
 
             $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(

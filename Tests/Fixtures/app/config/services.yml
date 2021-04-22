@@ -1,0 +1,17 @@
+parameters:
+  bazinga.jstranslation.controller.class: 'Bazinga\Bundle\JsTranslationBundle\Controller\Controller'
+services:
+
+  bazinga.jstranslation.controller:
+    class: "%bazinga.jstranslation.controller.class%"
+    public: true
+    arguments:
+      - '@translator'
+      - '@twig'
+      - '@bazinga.jstranslation.translation_finder'
+      - '@doctrine.orm.default_entity_manager'
+      - "%kernel.cache_dir%/bazinga-js-translation"
+      - test
+      - "%kernel.debug%"
+      - en
+      - messages

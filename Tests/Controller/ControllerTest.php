@@ -36,7 +36,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"en":{"messages":{"hello":"hello"}},"fr":{"messages+intl-icu":{"hello_name":"bonjour {name} !"},"messages":{"hello":"bonjour"}}}
+    "translations": {"en":{"messages":{"hello":"hello"}},"fr":{"messages":{"hello":"bonjour"},"messages+intl-icu":{"hello_name":"bonjour {name} !"}}}
 }
 
 JSON
@@ -54,7 +54,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"en":[]}
+    "translations": {"en":{"unknown":[]}}
 }
 
 JSON
@@ -72,7 +72,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"pt":[]}
+    "translations": {"pt":{"foo":[]}}
 }
 
 JSON
@@ -112,8 +112,8 @@ t.defaultDomain = 'messages';
 // en
 t.add("hello", "hello", "messages", "en");
 // fr
-t.add("hello_name", "bonjour {name} !", "messages\u002Bintl\u002Dicu", "fr");
 t.add("hello", "bonjour", "messages", "fr");
+t.add("hello_name", "bonjour {name} !", "messages\u002Bintl\u002Dicu", "fr");
 })(Translator);
 
 JS
@@ -223,7 +223,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"en_en":[]}
+    "translations": {"en_en":{"messages":[]}}
 }
 
 JSON
@@ -241,7 +241,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"en-en":[]}
+    "translations": {"en-en":{"messages":[]}}
 }
 
 JSON
@@ -259,7 +259,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"fr-FR":[]}
+    "translations": {"fr-FR":{"messages":[]}}
 }
 
 JSON
@@ -277,7 +277,7 @@ JSON
 {
     "fallback": "en",
     "defaultDomain": "messages",
-    "translations": {"fr_FR":[]}
+    "translations": {"fr_FR":{"messages":[]}}
 }
 
 JSON

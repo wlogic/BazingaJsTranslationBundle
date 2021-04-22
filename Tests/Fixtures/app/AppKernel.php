@@ -21,6 +21,7 @@ while ($dir !== $lastDir) {
     $dir = dirname($dir);
 }
 
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\HttpKernel\Kernel;
 
@@ -40,7 +41,8 @@ class AppKernel extends Kernel
             new \Symfony\Bundle\FrameworkBundle\FrameworkBundle(),
             new \Symfony\Bundle\TwigBundle\TwigBundle(),
             new \Bazinga\Bundle\JsTranslationBundle\BazingaJsTranslationBundle(),
-            new \Bazinga\Bundle\JsTranslationBundle\Tests\Fixtures\app\TestingPurposesBundle\TestingPurposesBundle()
+            new \Bazinga\Bundle\JsTranslationBundle\Tests\Fixtures\app\TestingPurposesBundle\TestingPurposesBundle(),
+            new DoctrineBundle(),
         );
     }
 
@@ -67,13 +69,14 @@ class AppKernel extends Kernel
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
         $loader->load(__DIR__.'/config/'.$this->environment.'.yml');
-        
+        $loader->load(__DIR__.'/config/services.yml');
+
         if (self::VERSION_ID >= 40400) {
             $loader->load(__DIR__.'/config/base_config_44.yml');
         } else {
             $loader->load(__DIR__.'/config/base_config.yml');
         }
-        
+
         if (self::VERSION_ID > 30200) {
             $loader->load(__DIR__.'/config/disable_annotations.yml');
         }

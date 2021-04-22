@@ -1,0 +1,9 @@
+imports:
+  - { resource: base_config.yml }
+
+framework:
+  translator:
+    fallbacks: ['en']
+    paths:
+      - "%kernel.project_dir%/app/Infrastructure/Ui/Translations"
+  test: true

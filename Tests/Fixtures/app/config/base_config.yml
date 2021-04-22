@@ -19,3 +19,9 @@ bazinga_js_translation:
         - messages
         - numerics
         - foo
+
+doctrine:
+    dbal:
+        default_connection: default
+    orm:
+        connection: default
