@@ -3,16 +3,18 @@
 namespace Bazinga\Bundle\JsTranslationBundle\Controller;
 
 use Bazinga\Bundle\JsTranslationBundle\Finder\TranslationFinder;
-use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\EntityManagerInterface;
+use Bazinga\Bundle\JsTranslationBundle\Util;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Translation\TranslatorInterface as LegacyTranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Config\ConfigCache;
 use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\Filesystem\Exception\IOException;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Translation\TranslatorInterface;
-use Twig_Environment;
+use Twig\Environment;
+use Twig\Loader\LoaderInterface;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * @author William DURAND <william.durand1@gmail.com>
@@ -33,7 +35,7 @@ class Controller
     private $translator;
 
     /**
-     * @var Twig_Environment
+     * @var Environment
      */
     private $twig;
 
@@ -45,7 +47,7 @@ class Controller
     /**
      * @var array
      */
-    private $loaders = array();
+    private $loaders = [];
 
     /**
      * @var EntityManagerInterface
@@ -72,16 +74,37 @@ class Controller
      */
     private $defaultDomain;
 
+    /**
+     * @var string
+     */
+    private $enviornmnet;
+
+    /**
+     * @param TranslatorInterface           $translator        The translator.
+     * @param Environment                   $twig              The twig environment.
+     * @param TranslationFinder             $translationFinder The translation finder.
+     * @param EntityManagerInterface        $em                The EntityManagerInterface.
+     * @param string                        $cacheDir
+     * @param boolean                       $debug
+     * @param string                        $localeFallback
+     * @param string                        $defaultDomain
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
-        TranslatorInterface $translator,
-        Twig_Environment $twig,
+        $translator,
+        Environment $twig,
         TranslationFinder $translationFinder,
         EntityManagerInterface $em,
         $cacheDir,
+        string $environment,
         $debug          = false,
         $localeFallback = '',
         $defaultDomain  = ''
     ) {
+        if (!$translator instanceof TranslatorInterface && !$translator instanceof LegacyTranslatorInterface) {
+            throw new \InvalidArgumentException(sprintf('Providing an instance of "%s" as translator is not supported.', get_class($translator)));
+        }
+
         $this->translator        = $translator;
         $this->twig              = $twig;
         $this->translationFinder = $translationFinder;
@@ -90,6 +113,7 @@ class Controller
         $this->debug             = $debug;
         $this->localeFallback    = $localeFallback;
         $this->defaultDomain     = $defaultDomain;
+        $this->environment       = $environment;
     }
 
     /**
@@ -124,31 +148,37 @@ class Controller
         );
 
         if (!$cache->isFresh()) {
-            $resources    = array();
-            $translations = array();
+            $resources    = [];
+            $translations = [];
 
             foreach ($locales as $locale) {
-                $translations[$locale] = array();
+                $translations[$locale] = [];
 
                 $files = $this->translationFinder->get($domain, $locale);
 
-                $translations[$locale][$domain] = array();
+                $translations[$locale][$domain] = [];
 
                 foreach ($files as $filename) {
+                    [$currentDomain] = Util::extractCatalogueInformationFromFilename($filename);
+                    $translations[$locale][$currentDomain] = [];
+
                     $extension = pathinfo($filename, \PATHINFO_EXTENSION);
 
                     if (isset($this->loaders[$extension])) {
                         $resources[] = new FileResource($filename);
-                        $catalogue   = $this->loaders[$extension]
-                            ->load($filename, $locale, $domain);
+                        $catalogue = $this->loaders[$extension]
+                            ->load($filename, $locale, $currentDomain);
 
-                        $translations[$locale][$domain] = array_replace_recursive(
-                            $translations[$locale][$domain],
-                            $catalogue->all($domain)
+                        $translations[$locale][$currentDomain] = array_replace_recursive(
+                            $translations[$locale][$currentDomain],
+                            $catalogue->all($currentDomain)
                         );
                     }
                 }
-                $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
+
+                if ($this->environment !== 'test') {
+                    $translations = $this->getDatabaseTranslations($translations, $locale, $domain);
+                }
             }
 
             $content = $this->twig->render('@BazingaJsTranslation/getTranslations.' . $_format . '.twig', array(

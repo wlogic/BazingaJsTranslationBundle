@@ -1,9 +1,10 @@
 <?php
 
-namespace Bazinga\JsTranslationBundle\Tests\Finder;
+namespace Bazinga\Bundle\JsTranslationBundle\Tests\Dumper;
 
 use Bazinga\Bundle\JsTranslationBundle\Dumper\TranslationDumper;
 use Bazinga\Bundle\JsTranslationBundle\Tests\WebTestCase;
+use Symfony\Component\Filesystem\Filesystem;
 
 /**
  * @author Adrien Russo <adrien.russo.qc@gmail.com>
@@ -58,6 +59,7 @@ JS;
     const JS_FR_MERGED_TRANSLATIONS = <<<JS
 (function (t) {
 // fr
+t.add("hello_name", "bonjour {name} !", "messages\u002Bintl\u002Dicu", "fr");
 t.add("hello", "bonjour", "messages", "fr");
 t.add(7, "Nos occasions", "numerics", "fr");
 t.add(8, "Nous contacter", "numerics", "fr");
@@ -72,6 +74,7 @@ JS;
     const JS_FR_MESSAGES_TRANSLATIONS = <<<JS
 (function (t) {
 // fr
+t.add("hello_name", "bonjour {name} !", "messages\u002Bintl\u002Dicu", "fr");
 t.add("hello", "bonjour", "messages", "fr");
 })(Translator);
 
@@ -121,14 +124,14 @@ JSON;
 
     const JSON_FR_MERGED_TRANSLATIONS = <<<JSON
 {
-    "translations": {"fr":{"messages":{"hello":"bonjour"},"numerics":{"7":"Nos occasions","8":"Nous contacter","12":"pr\u00e9nom","13":"nom","14":"adresse","15":"code postal"}}}
+    "translations": {"fr":{"messages+intl-icu":{"hello_name":"bonjour {name} !"},"messages":{"hello":"bonjour"},"numerics":{"7":"Nos occasions","8":"Nous contacter","12":"pr\u00e9nom","13":"nom","14":"adresse","15":"code postal"}}}
 }
 
 JSON;
 
     const JSON_FR_MESSAGES_TRANSLATIONS = <<<JSON
 {
-    "translations": {"fr":{"messages":{"hello":"bonjour"}}}
+    "translations": {"fr":{"messages+intl-icu":{"hello_name":"bonjour {name} !"},"messages":{"hello":"bonjour"}}}
 }
 
 JSON;
@@ -151,13 +154,13 @@ JSON;
         $container = $this->getContainer();
 
         $this->target     = sys_get_temp_dir() . '/bazinga/js-translation-bundle';
-        $this->filesystem = $container->get('filesystem');
+        $this->filesystem = new Filesystem();
         $this->dumper     = $container->get('bazinga.jstranslation.translation_dumper');
 
         $this->filesystem->mkdir($this->target);
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         if (is_dir($this->target)) {
             $this->filesystem->remove($this->target);

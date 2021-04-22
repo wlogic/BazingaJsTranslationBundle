@@ -1,6 +1,6 @@
 <?php
 
-namespace Bazinga\Bundle\JsTranslationBundle\Tests;
+namespace Bazinga\Bundle\JsTranslationBundle\Tests\Fixtures\app;
 
 // get the autoload file
 $dir = __DIR__;
@@ -21,6 +21,7 @@ while ($dir !== $lastDir) {
     $dir = dirname($dir);
 }
 
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\HttpKernel\Kernel;
 
@@ -40,13 +41,19 @@ class AppKernel extends Kernel
             new \Symfony\Bundle\FrameworkBundle\FrameworkBundle(),
             new \Symfony\Bundle\TwigBundle\TwigBundle(),
             new \Bazinga\Bundle\JsTranslationBundle\BazingaJsTranslationBundle(),
-            new \Bazinga\Bundle\JsTranslationBundle\Tests\Fixtures\app\TestingPurposesBundle\TestingPurposesBundle()
+            new \Bazinga\Bundle\JsTranslationBundle\Tests\Fixtures\app\TestingPurposesBundle\TestingPurposesBundle(),
+            new DoctrineBundle(),
         );
     }
 
     public function getRootDir()
     {
         return __DIR__;
+    }
+
+    public function getProjectDir()
+    {
+        return __DIR__.'/../';
     }
 
     public function getCacheDir()
@@ -61,14 +68,21 @@ class AppKernel extends Kernel
 
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
-        if (self::VERSION_ID < 20800) {
-            $loader->load(__DIR__.'/config/older_versions_config.yml');
+        $loader->load(__DIR__.'/config/'.$this->environment.'.yml');
+        $loader->load(__DIR__.'/config/services.yml');
+
+        if (self::VERSION_ID >= 40400) {
+            $loader->load(__DIR__.'/config/base_config_44.yml');
         } else {
-            $loader->load(__DIR__.'/config/'.$this->environment.'.yml');
+            $loader->load(__DIR__.'/config/base_config.yml');
         }
 
         if (self::VERSION_ID > 30200) {
             $loader->load(__DIR__.'/config/disable_annotations.yml');
+        }
+
+        if (self::VERSION_ID < 40200 && file_exists(__DIR__.'/Resources/translations') === false) {
+            self::recurseCopy(__DIR__.'/../translations', __DIR__.'/Resources/translations');
         }
     }
 
@@ -80,5 +94,22 @@ class AppKernel extends Kernel
     public function unserialize($str)
     {
         call_user_func_array(array($this, '__construct'), unserialize($str));
+    }
+
+    private static function recurseCopy($src, $dst)
+    {
+        $dir = opendir($src);
+        @mkdir($dst, 0777, true);
+        while (false !== ($file = readdir($dir))) {
+            if (($file !== '.') && ($file !== '..')) {
+                if (is_dir($src.'/'.$file)) {
+                    self::recurseCopy($src.'/'.$file, $dst.'/'.$file);
+                } else {
+                    copy($src.'/'.$file, $dst.'/'.$file);
+                }
+            }
+        }
+
+        closedir($dir);
     }
 }

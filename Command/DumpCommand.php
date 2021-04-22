@@ -34,10 +34,10 @@ class DumpCommand extends Command
      * @param TranslationDumper $dumper
      * @param $kernelRootDir
      */
-    public function __construct(TranslationDumper $dumper, $kernelRootDir)
+    public function __construct(TranslationDumper $dumper, $projectDir)
     {
         $this->dumper = $dumper;
-        $this->kernelRootDir = $kernelRootDir;
+        $this->kernelRootDir = $projectDir . '/app';
 
         parent::__construct();
     }
@@ -112,5 +112,7 @@ class DumpCommand extends Command
         ));
 
         $this->dumper->dump($this->targetPath, $input->getOption('pattern'), $formats, $merge);
+        
+        return 0;
     }
 }

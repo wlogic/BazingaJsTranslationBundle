@@ -10,6 +10,23 @@ of this bundle. For version `1.x`, please read:
 Also, you might be interested in this [UPGRADE
 guide](https://github.com/willdurand/BazingaJsTranslationBundle/blob/master/UPGRADE.md).
 
+- [Installation](#installation)
+- [Usage](#usage)
+    - [Load Translations](#load-translations)
+        - [Domains](#domains)
+        - [Locales](#locales)
+        - [Loading via JSON](#loading-via-json)
+    - [The dump Command](#the-dump-command)
+        - [Assetic](#assetic)
+    - [The JS Translator](#the-js-translator)
+        - [Message Placeholders / Parameters](#message-placeholders--parameters)
+        - [Pluralization](#pluralization)
+        - [Using ICU MessageFormat](#using-icu-messageformat)
+        - [Get The Locale](#get-the-locale)
+- [Examples](#examples)
+- [More configuration](#more-configuration)
+- [Reference Configuration](#reference-configuration)
+- [Testing](#testing)
 
 Installation
 ------------
@@ -44,7 +61,7 @@ _bazinga_jstranslation:
 
 Publish assets:
 
-    php app/console assets:install --symlink web
+    php bin/console assets:install --symlink
 
 ### Require via NPM (optional)
 
@@ -89,7 +106,7 @@ attribute to the `html` tag:
 ```
 
 Now, you are done with the basic setup, and you can specify the [translation
-files](http://symfony.com/doc/current/book/translation.html#translation-locations-and-naming-conventions)
+files](https://symfony.com/doc/current/translation.html#translation-resource-file-names-and-locations)
 you want to load.
 
 ### Load Translations
@@ -150,14 +167,14 @@ You can use the `locales` **query parameter** to get translations in a specific
 language, or to load translation messages in several languages at once:
 
 ``` html
-<script src="{{ url('bazinga_jstranslation_js', { 'domain': 'DOMAIN_NAME' }) }}?locales=MY_LOCALE"></script>
+<script src="{{ url('bazinga_jstranslation_js', { 'domain': 'DOMAIN_NAME', 'locales': 'MY_LOCALE' }) }}"></script>
 ```
 
 This will return the translated messages found in each `DOMAIN_NAME.MY_LOCALE.*`
 files of your project.
 
 ``` html
-<script src="{{ url('bazinga_jstranslation_js', { 'domain': 'DOMAIN_NAME' }) }}?locales=fr,en"></script>
+<script src="{{ url('bazinga_jstranslation_js', { 'domain': 'DOMAIN_NAME', 'locales': 'fr,en' }) }}"></script>
 ```
 
 This will return the translated messages found in each `DOMAIN_NAME.(fr|en).*`
@@ -179,10 +196,10 @@ Then, feed the translator via `Translator.fromJSON(myRetrievedJSONString)`.
 
 This bundle provides a command to dump the translation files:
 
-    php app/console bazinga:js-translation:dump [target] [--format=js|json] [--pattern=/translations/{domain}.{_format}] [--merge-domains]
+    php bin/console bazinga:js-translation:dump [target] [--format=js|json] [--pattern=/translations/{domain}.{_format}] [--merge-domains]
 
 The optional `target` argument allows you to override the target directory to
-dump JS translation files in. By default, it generates files in the `web/js/`
+dump JS translation files in. By default, it generates files in the `public/js/`
 directory.
 
 The `--format` option allows you to specify which formats must be included in the output.
@@ -255,7 +272,7 @@ Translator.transChoice('key', 123, { "foo" : "bar" }, 'DOMAIN_NAME');
 ```
 
 > Read the official documentation about Symfony2 [message
-placeholders](http://symfony.com/doc/current/book/translation.html#message-placeholders).
+placeholders](https://symfony.com/doc/current/translation.html#message-placeholders).
 
 #### Pluralization
 
@@ -294,7 +311,58 @@ Translator.transChoice('apples', 100, {"count" : 100});
 ```
 
 For more information, read the official documentation  about
-[pluralization](http://symfony.com/doc/current/book/translation.html#pluralization).
+[pluralization](https://symfony.com/doc/current/translation.html#pluralization).
+
+#### Using ICU MessageFormat
+
+Like Symfony, the bundle supports [ICU MessageFormat](http://userguide.icu-project.org/formatparse/messages).
+It's a more advanced syntax that allows you to handle placeholders, singular/plural, number, date, time, conditions, etc... [see some examples](https://format-message.github.io/icu-message-format-for-translators/).
+
+##### Installation
+
+The bundle requires on an external library [`intl-messageformat`](https://formatjs.io/docs/intl-messageformat/).
+
+You can either load it globally, e.g. from a CDN:
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-messageformat/9.0.2/intl-messageformat.min.js" integrity="sha512-uGIOqaLIi8I30qAnPLfrEnecDDi08AcCrg7gzGp/XrDafLJl/NIilHwAm1Wl2FLiTSf10D5vM70108k3oMjK5Q==" crossorigin="anonymous"></script>
+<script src="{{ url('bazinga_jstranslation_js') }}"></script>
+```
+
+Or use NPM if you use an module bundler:
+
+    npm install intl-messageformat --save
+
+`intl-messageformat` depends of [`Intl`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl). If you targets old browser you will need to use a polyfill, for example [Andy Earnshaw's `Intl` polyfill](https://github.com/andyearnshaw/Intl.js/).
+
+##### Usage
+
+You must define your translations key in domain suffixed by `+intl-icu`, e.g.: `messages.en.yaml` becomes `messages+intl-icu.en.yaml`.
+
+Given the following translations file:
+```yaml
+# translations/messages+intl-icu.en.yaml
+hello_name: Hello {name}!
+name_has_x_projects: {name} has {projectCount, plural, =0 {no projects} one {# project} other {# projects}}
+```
+
+Then you can use the Translator like this:
+```javascript
+Translator.trans('hello_name', { name: 'John' }, 'messages');
+// will return "Hello John!"
+
+
+// equivalent to Translator.transChoice() with the "classic" translations format
+Translator.trans('name_has_x_projects', { name: 'John', projectCount: 0 }, 'messages');
+// will return "John has no projects."
+
+Translator.trans('name_has_x_projects', { name: 'John', projectCount: 1 }, 'messages');
+// will return "John has 1 project."
+
+Translator.trans('name_has_x_projects', { name: 'John', projectCount: 4 }, 'messages');
+// will return "John has 4 projects."
+```
+
+For more information, read the [Symfony documentation about ICU MessageFormat](https://symfony.com/doc/current/translation/message_format.html) or the [ICU User Guide](http://userguide.icu-project.org/formatparse/messages).
 
 #### Get The Locale
 
@@ -424,7 +492,7 @@ Testing
 
 ### PHP
 
-Setup the test suite using [Composer](http://getcomposer.org/):
+Setup the test suite using [Composer](https://getcomposer.org/):
 
     $ composer install --dev
 
